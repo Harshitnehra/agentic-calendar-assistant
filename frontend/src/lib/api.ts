@@ -20,7 +20,15 @@ export async function apiFetch<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  const contentType = res.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Expected a JSON response from ${path}, but received ${contentType || "an unknown content type"}`,
+    );
+  }
+
+  const data = (await res.json()) as T & { error?: string };
   if (!res.ok) throw new Error(data.error ?? "Request failed");
 
   return data;

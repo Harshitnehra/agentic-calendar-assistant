@@ -21,16 +21,34 @@ export type ThreadMessage = {
 };
 
 export async function listThreads(token: string) {
-  return apiFetch<{ threads: ThreadSummary[] }>("/api/agent/threads", {
+  const data = await apiFetch<{ threads?: unknown }>("/api/agent/threads", {
     token,
   });
+
+  if (!Array.isArray(data.threads)) {
+    throw new Error("The agent API returned an invalid threads response");
+  }
+
+  return { threads: data.threads as ThreadSummary[] };
 }
 
 export async function loadThread(token: string, threadId: string) {
-  return apiFetch<{ threadId: string; messages: ThreadMessage[] }>(
+  const data = await apiFetch<{
+    threadId?: unknown;
+    messages?: unknown;
+  }>(
     `/api/agent/threads/${threadId}`,
     { token },
   );
+
+  if (typeof data.threadId !== "string" || !Array.isArray(data.messages)) {
+    throw new Error("The agent API returned an invalid thread response");
+  }
+
+  return {
+    threadId: data.threadId,
+    messages: data.messages as ThreadMessage[],
+  };
 }
 
 export async function streamAgentChat(

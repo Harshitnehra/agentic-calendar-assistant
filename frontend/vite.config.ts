@@ -9,10 +9,10 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       "import.meta.env.VITE_API_URL": JSON.stringify(
-        env.VITE_API_URL ?? env.NEXT_PUBLIC_API_URL,
+        env.VITE_API_URL ?? env.VITE_DESCOPE_MANAGEMENT_KEY,
       ),
       "import.meta.env.VITE_DESCOPE_PROJECT_ID": JSON.stringify(
-        env.VITE_DESCOPE_PROJECT_ID ?? env.NEXT_PUBLIC_DESCOPE_PROJECT_ID,
+        env.VITE_DESCOPE_PROJECT_ID ?? env.vite_DESCOPE_PROJECT_ID,
       ),
     },
     resolve: {

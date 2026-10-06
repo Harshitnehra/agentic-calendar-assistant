@@ -30,7 +30,38 @@ export type ThreadMessage = {
 };
 
 function modelName() {
-  return `openai/${process.env.AI_MODEL ?? "gpt-4o-mini"}`;
+  const model = process.env.AI_MODEL?.trim() || "gemini-3.8-flash";
+  return model.startsWith("google/") ? model : `google/${model}`;
+}
+
+function configureGeminiApiKey() {
+  const apiKey =
+    process.env.GOOGLE_API_KEY?.trim() ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ||
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GOOGLE_GEMINI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error(
+      "Gemini API key is not set. Add GEMINI_API_KEY to backend/.env",
+    );
+  }
+
+  // Mastra's Google model router reads this standard AI SDK variable. Keep
+  // GOOGLE_GEMINI_API_KEY working as a backwards-compatible project alias.
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+
+  if (error && typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+
+  return "The AI provider failed to generate a response";
 }
 
 function messageText(content: unknown): string {
@@ -122,9 +153,7 @@ export async function getThreadMessages(
 }
 
 export async function streamAgentReply(input: StreamAgentReplyInput) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set env");
-  }
+  configureGeminiApiKey();
 
   input.onEvent({
     type: "started",
@@ -149,7 +178,13 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
     },
   });
 
+  let streamedText = "";
+
   for await (const chunk of result.fullStream) {
+    if (chunk.type === "error") {
+      throw new Error(errorMessage(chunk.payload.error));
+    }
+
     if (chunk.type === "tool-call") {
       input.onEvent({
         type: "progress",
@@ -163,12 +198,34 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
       const text = chunk.payload.text;
 
       if (text) {
+        streamedText += text;
         input.onEvent({
           type: "token",
           token: text,
         });
       }
     }
+  }
+
+  const outputError = result.error;
+  if (outputError) {
+    throw outputError;
+  }
+
+  // Some providers buffer their answer instead of emitting text-delta chunks.
+  // Preserve streaming when available, but fall back to the completed text so
+  // the UI never receives a false "completed" event with an empty response.
+  const finalText = await result.text;
+  if (!streamedText && finalText) {
+    streamedText = finalText;
+    input.onEvent({
+      type: "token",
+      token: finalText,
+    });
+  }
+
+  if (!streamedText.trim()) {
+    throw new Error("The AI provider returned an empty response");
   }
 
   // streaming finsihes

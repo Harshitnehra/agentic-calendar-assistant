@@ -158,7 +158,9 @@ function ChatPanel({ sessionToken, connections, footer }: Props) {
     try {
       const data = await listThreads(sessionToken);
       setThreads(data.threads);
-    } catch {}
+    } catch {
+      setThreads([]);
+    }
   }, [sessionToken]);
 
   useEffect(() => {
