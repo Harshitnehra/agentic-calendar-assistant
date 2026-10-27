@@ -3,6 +3,7 @@
 .env.*
 **/.env
 **/.env.*
+!backend/.env.example
 **/node_modules/
 **/.next/
 **/dist/

@@ -6,7 +6,8 @@ const dbPath = resolve(process.cwd(), "mastra.db");
 
 export const memoryStore = new LibSQLStore({
   id: "meeting-assistant-memory",
-  url: `file:${dbPath}`,
+  url: process.env.TURSO_DATABASE_URL ?? `file:${dbPath}`,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
 export function createAgentMemory() {
